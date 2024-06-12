@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres_db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=instamint
+      - POSTGRES_USER=instamint
+      - POSTGRES_DB=instamint
+    networks:
+      - app-network
+
+  # MinIO avec la dernière version stable
+  minio:
+    image: 'minio/minio:latest'
+    container_name: minio_server
+    restart: unless-stopped
+    ports:
+      - "9000:9000"   # API S3
+      - "8900:8900"   # Interface web d'administration
+    environment:
+      MINIO_ROOT_USER: instamint
+      MINIO_ROOT_PASSWORD: instamint
+      MINIO_API_ROOT_ACCESS: on
+      MINIO_BROWSER: on
+    volumes:
+      - './minio_data:/data/minio'
+    command: 'minio server /data/minio --console-address ":8900"'
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app-network
+
+  # Client MinIO pour gestion des access keys
+  minio_client:
+    image: 'minio/mc:latest'
+    container_name: minio_client
+    restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
+    volumes:
+      - minio_client_config:/root/.mc
+      - ./scripts:/scripts
+    environment:
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ROOT_USER=instamint
+      - MINIO_ROOT_PASSWORD=instamint
+    entrypoint: >
+      /bin/sh -c "
+      echo '⏳ Attente du serveur MinIO...'
+
+      # Attendre que MinIO soit prêt avec retry
+      max_attempts=30
+      attempt=1
+      while [ \$attempt -le \$max_attempts ]; do
+        if mc alias set local http://minio:9000 instamint instamint 2>/dev/null; then
+          echo '✅ Connexion à MinIO établie!'
+          break
+        fi
+        echo \"Tentative \$attempt/\$max_attempts - MinIO pas encore prêt, attente 10s...\"
+        sleep 10
+        attempt=\$((attempt + 1))
+      done
+
+      if [ \$attempt -gt \$max_attempts ]; then
+        echo '❌ Impossible de se connecter à MinIO après \$max_attempts tentatives'
+        exit 1
+      fi
+
+      echo '🚀 Configuration du client MinIO...'
+
+      # Vérifier la connexion
+      mc admin info local
+
+      # Création de buckets par défaut
+      echo '📁 Création des buckets par défaut...'
+      mc mb local/uploads --ignore-existing || echo 'Bucket uploads existe déjà'
+      mc mb local/documents --ignore-existing || echo 'Bucket documents existe déjà'
+      mc mb local/backups --ignore-existing || echo 'Bucket backups existe déjà'
+
+      # Création d'utilisateurs d'exemple
+      echo '👥 Création d\utilisateurs d\exemple...'
+      mc admin user add local viewer viewer123 || echo 'Utilisateur viewer existe déjà'
+      mc admin user add local editor editor123 || echo 'Utilisateur editor existe déjà'
+
+      # Attribution de politiques basiques (readwrite est une politique par défaut)
+      mc admin policy attach local readwrite --user=viewer || echo 'Politique déjà assignée à viewer'
+      mc admin policy attach local readwrite --user=editor || echo 'Politique déjà assignée à editor'
+
+      echo ''
+      echo '✅ Configuration de base terminée!'
+      echo '🌐 Interface web MinIO: http://localhost:8900'
+      echo '🔗 API S3: http://localhost:9000'
+      echo '👤 Identifiants admin: instamint / instamint'
+      echo '👥 Utilisateurs créés: viewer/viewer123, editor/editor123'
+      echo ''
+      echo '🔑 COMMANDES POUR GÉRER LES ACCESS KEYS:'
+      echo ''
+      echo '# Créer un access key pour l\admin (root)'
+      echo 'docker exec minio_client mc admin accesskey create local'
+      echo ''
+      echo '# Créer un access key pour un utilisateur spécifique'
+      echo 'docker exec minio_client mc admin user svcacct add local viewer'
+      echo 'docker exec minio_client mc admin user svcacct add local editor'
+      echo ''
+      echo '# Lister tous les access keys'
+      echo 'docker exec minio_client mc admin accesskey ls local'
+      echo ''
+      echo '# Lister les service accounts d\un utilisateur'
+      echo 'docker exec minio_client mc admin user svcacct ls local viewer'
+      echo ''
+      echo '# Supprimer un access key'
+      echo 'docker exec minio_client mc admin accesskey rm local ACCESS_KEY_ID'
+      echo ''
+      echo '# Info détaillée du serveur'
+      echo 'docker exec minio_client mc admin info local'
+      echo ''
+      echo '📋 EXEMPLE PRATIQUE:'
+      echo '# 1. Créer un token pour l\admin:'
+      echo '#    docker exec minio_client mc admin accesskey create local'
+      echo '# 2. Créer un token pour viewer:'
+      echo '#    docker exec minio_client mc admin user svcacct add local viewer'
+      echo ''
+
+      # Garder le conteneur actif
+      tail -f /dev/null
+      "
+    networks:
+      - app-network
+
+volumes:
+  minio_client_config:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
