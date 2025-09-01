@@ -138,3 +138,12 @@ export const requestFollowRelations = relations(RequestFollowTable, ({one}) => (
     references: [ProfileTable.id],
   }),
 }))
+
+export const PrivateMessageTable = pgTable("PrivateMessage", {
+  id: serial("id").notNull().primaryKey(),
+  fromProfileId: integer("fromProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  toProfileId: integer("toProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  message: varchar("message", {length: 1000}).notNull(),
+  sentAt: timestamp("sentAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  replyPrivateMessageId: integer("replyPrivateMessageId"),
+})
