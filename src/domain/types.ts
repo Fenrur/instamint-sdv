@@ -20,9 +20,29 @@ export const profileVisibilityTypeArray = [
 
 export type ProfileVisibilityType = typeof profileVisibilityTypeArray[number]
 
+export const currencyTypeArray = [
+  "usd",
+  "eur",
+  "eth",
+  "sol"
+] as const
+
+export type CurrencyType = typeof currencyTypeArray[number]
+
 export const notificationTypeArray = [
+  "comments_replies",
+  "comments_threads", 
+  "mints",
   "follow_requests",
   "follow_requests_accepted"
 ] as const
 
 export type NotificationType = typeof notificationTypeArray[number]
+
+export const nftTypeArray = [
+  "image",
+  "video",
+  "audio"
+] as const
+
+export type NftType = typeof nftTypeArray[number]

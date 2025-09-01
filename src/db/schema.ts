@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   integer,
   pgEnum,
   pgTable,
@@ -12,7 +13,9 @@ import {
 } from "drizzle-orm/pg-core"
 import {relations} from "drizzle-orm"
 import {
+  currencyTypeArray,
   languageTypeArray,
+  nftTypeArray,
   notificationTypeArray,
   profileVisibilityTypeArray,
   userRoleArray
@@ -25,6 +28,10 @@ export const UserRoleEnum = pgEnum("UserRole", userRoleArray)
 export const ProfileVisibilityTypeEnum = pgEnum("ProfileVisibilityType", profileVisibilityTypeArray)
 
 export const NotificationTypeEnum = pgEnum("NotificationType", notificationTypeArray)
+
+export const CurrencyTypeEnum = pgEnum("CurrencyType", currencyTypeArray)
+
+export const NftTypeEnum = pgEnum("NftType", nftTypeArray)
 
 export const ProfileTable = pgTable("Profile", {
   id: serial("id").notNull().primaryKey(),
@@ -49,6 +56,9 @@ export const profileRelations = relations(ProfileTable, ({ many }) => ({
   requesters: many(RequestFollowTable, {
     relationName: "requesterUserFk"
   }),
+  showOnNfts: many(NftTable, {
+    relationName: "nftShowOnProfileFk"
+  }),
 }))
 
 export const UserTable = pgTable("User", {
@@ -63,7 +73,7 @@ export const UserTable = pgTable("User", {
   languageType: LanguageTypeEnum("languageType").notNull().default("en"),
   role: UserRoleEnum("role").notNull().default("user"),
   profileId: integer("profileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
-  enabledNotificationTypes: NotificationTypeEnum("enabledNotificationTypes").array().notNull().default(["follow_requests", "follow_requests_accepted"]),
+  enabledNotificationTypes: NotificationTypeEnum("enabledNotificationTypes").array().notNull().default(["comments_replies", "comments_threads", "mints", "follow_requests", "follow_requests_accepted"]),
 })
 
 export const userRelations = relations(UserTable, ({one}) => ({
@@ -147,3 +157,33 @@ export const PrivateMessageTable = pgTable("PrivateMessage", {
   sentAt: timestamp("sentAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
   replyPrivateMessageId: integer("replyPrivateMessageId"),
 })
+
+export const EmailVerificationTable = pgTable("EmailVerification", {
+  id: serial("id").notNull().primaryKey(),
+  verificationId: uuid("verificationId").notNull().unique().defaultRandom(),
+  email: varchar("email", {length: 255}).notNull(),
+  createdAt: timestamp("createdAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  expireAt: timestamp("expireAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  isVerified: boolean("isVerified").notNull()
+})
+
+export const NftTable = pgTable("Nft", {
+  id: serial("id").notNull().primaryKey(),
+  ownerUserId: integer("ownerUserId").notNull().references(() => UserTable.id, {onDelete: "cascade"}),
+  showOnProfileId: integer("showOnProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  title: varchar("title", {length: 255}).notNull(),
+  description: text("description").notNull().default(""),
+  location: text("location"),
+  price: doublePrecision("price").notNull(),
+  currencyType: CurrencyTypeEnum("currencyType").notNull(),
+  contentUrl: varchar("contentUrl", {length: 255}).notNull(),
+  postedAt: timestamp("postedAt", {withTimezone: false, mode: "string", precision: 3}).notNull().defaultNow(),
+  type: NftTypeEnum("type").notNull(),
+})
+
+export const nftRelations = relations(NftTable, ({one}) => ({
+  profile: one(ProfileTable, {
+    fields: [NftTable.showOnProfileId],
+    references: [ProfileTable.id],
+  }),
+}))
