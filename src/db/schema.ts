@@ -181,9 +181,45 @@ export const NftTable = pgTable("Nft", {
   type: NftTypeEnum("type").notNull(),
 })
 
-export const nftRelations = relations(NftTable, ({one}) => ({
+export const nftRelations = relations(NftTable, ({many, one}) => ({
+  mints: many(MintTable),
   profile: one(ProfileTable, {
     fields: [NftTable.showOnProfileId],
     references: [ProfileTable.id],
   }),
 }))
+
+export const MintTable = pgTable("Mint", {
+  nftId: integer("nftId").notNull().references(() => NftTable.id, {onDelete: "cascade"}),
+  profileId: integer("profileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  mintAt: timestamp("mintAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+})
+
+export const mintRelations = relations(MintTable, ({one}) => ({
+  author: one(NftTable, {
+    fields: [MintTable.nftId],
+    references: [NftTable.id],
+  }),
+}))
+
+export const CommentTable = pgTable("Comment", {
+  id: serial("id").notNull().primaryKey(),
+  nftId: integer("nftId").notNull().references(() => NftTable.id, {onDelete: "cascade"}),
+  profileId: integer("profileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  commentedAt: timestamp("commentedAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  commentary: varchar("commentary", {length: 1000}).notNull(),
+  replyCommentId: integer("replyCommentId")
+})
+
+export const commentRelations = relations(CommentTable, ({one}) => ({
+  nft: one(NftTable, {
+    fields: [CommentTable.nftId],
+    references: [NftTable.id],
+  }),
+}))
+
+export const MintCommentTable = pgTable("MintComment", {
+  commentId: integer("commentId").notNull().references(() => CommentTable.id, {onDelete: "cascade"}),
+  profileId: integer("profileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  mintAt: timestamp("mintAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+})
