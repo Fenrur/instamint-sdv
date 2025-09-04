@@ -18,7 +18,8 @@ import {
   nftTypeArray,
   notificationTypeArray,
   profileVisibilityTypeArray,
-  userRoleArray
+  userRoleArray,
+  userTeaBagRoleArray
 } from "@/domain/types"
 
 export const LanguageTypeEnum = pgEnum("LanguageType", languageTypeArray)
@@ -27,9 +28,11 @@ export const UserRoleEnum = pgEnum("UserRole", userRoleArray)
 
 export const ProfileVisibilityTypeEnum = pgEnum("ProfileVisibilityType", profileVisibilityTypeArray)
 
-export const NotificationTypeEnum = pgEnum("NotificationType", notificationTypeArray)
-
 export const CurrencyTypeEnum = pgEnum("CurrencyType", currencyTypeArray)
+
+export const UserTeaBagRoleEnum = pgEnum("UserTeaBagRole", userTeaBagRoleArray)
+
+export const NotificationTypeEnum = pgEnum("NotificationType", notificationTypeArray)
 
 export const NftTypeEnum = pgEnum("NftType", nftTypeArray)
 
@@ -83,88 +86,9 @@ export const userRelations = relations(UserTable, ({one}) => ({
   }),
 }))
 
-export const ReportProfileTable = pgTable("ReportProfile", {
-  reporterProfileId: integer("reporterProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}).primaryKey(),
-  reportedProfileId: integer("reportedProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}).primaryKey(),
-  reason: varchar("reason", {length: 1000}),
-  reportAt: timestamp("reportAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
-})
-
-export const ViewProfileTable = pgTable("ViewProfile", {
+export const TeaBagTable = pgTable("TeaBag", {
   id: serial("id").notNull().primaryKey(),
-  viewerProfileId: integer("viewerProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
-  viewedProfileId: integer("viewedProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
-  viewAt: timestamp("viewAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
-})
-
-export const ScheduleDeletionUserTable = pgTable("ScheduleDeletionUser", {
-  id: serial("id").notNull().primaryKey(),
-  userId: integer("userId").notNull().unique().references(() => UserTable.id, {onDelete: "cascade"}),
-  scheduleAt: timestamp("scheduleAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
-  byUserId: integer("byUserId").notNull().references(() => UserTable.id, {onDelete: "cascade"}),
-  reason: varchar("reason", {length: 1000})
-})
-
-export const FollowTable = pgTable("Follow", {
-  followerProfileId: integer("followerProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
-  followedProfileId: integer("followedProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
-  followAt: timestamp("followAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
-}, (table) => {
-  return {
-    pk: primaryKey({name: "Follow_pkey", columns: [table.followerProfileId, table.followedProfileId]})
-  }
-})
-
-export const followRelations = relations(FollowTable, ({one}) => ({
-  follower: one(ProfileTable, {
-    fields: [FollowTable.followerProfileId],
-    references: [ProfileTable.id],
-  }),
-  followed: one(ProfileTable, {
-    fields: [FollowTable.followedProfileId],
-    references: [ProfileTable.id],
-  }),
-}))
-
-export const PasswordResetTable = pgTable("PasswordReset", {
-  id: serial("id").notNull().primaryKey(),
-  resetId: uuid("resetId").notNull().unique().defaultRandom(),
-  userId: integer("userId").notNull().references(() => UserTable.id, {onDelete: "cascade"}),
-  createdAt: timestamp("createdAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
-  expireAt: timestamp("expireAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
-  active: boolean("active").notNull(),
-})
-
-export const RequestFollowTable = pgTable("RequestFollow", {
-  requesterProfileId: integer("requesterProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}).primaryKey(),
-  requestedProfileId: integer("requestedProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}).primaryKey(),
-  requestAt: timestamp("requestAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
-  isIgnored: boolean("isIgnored").notNull().default(false),
-})
-
-export const requestFollowRelations = relations(RequestFollowTable, ({one}) => ({
-  requester: one(ProfileTable, {
-    fields: [RequestFollowTable.requesterProfileId],
-    references: [ProfileTable.id],
-  }),
-}))
-
-export const PrivateMessageTable = pgTable("PrivateMessage", {
-  id: serial("id").notNull().primaryKey(),
-  fromProfileId: integer("fromProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
-  toProfileId: integer("toProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
-  message: varchar("message", {length: 1000}).notNull(),
-  sentAt: timestamp("sentAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
-  replyPrivateMessageId: integer("replyPrivateMessageId"),
-})
-
-export const EmailVerificationTable = pgTable("EmailVerification", {
-  id: serial("id").notNull().primaryKey(),
-  verificationId: uuid("verificationId").notNull().unique().defaultRandom(),
-  email: varchar("email", {length: 255}).notNull(),
-  createdAt: timestamp("createdAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
-  expireAt: timestamp("expireAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
-  isVerified: boolean("isVerified").notNull()
+  profileId: integer("profileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"})
 })
 
 export const NftTable = pgTable("Nft", {
@@ -202,6 +126,11 @@ export const mintRelations = relations(MintTable, ({one}) => ({
   }),
 }))
 
+export const HashtagNftTable = pgTable("HashtagNft", {
+  hashtag: varchar("hashtag", {length: 255}).notNull().primaryKey(),
+  nftId: integer("nftId").notNull().references(() => NftTable.id, {onDelete: "cascade"}).primaryKey(),
+})
+
 export const CommentTable = pgTable("Comment", {
   id: serial("id").notNull().primaryKey(),
   nftId: integer("nftId").notNull().references(() => NftTable.id, {onDelete: "cascade"}),
@@ -215,6 +144,137 @@ export const commentRelations = relations(CommentTable, ({one}) => ({
   nft: one(NftTable, {
     fields: [CommentTable.nftId],
     references: [NftTable.id],
+  }),
+}))
+
+export const ReportCommentTable = pgTable("ReportComment", {
+  reporterProfileId: integer("reporterProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}).primaryKey(),
+  reportedCommentId: integer("reportedCommentId").notNull().references(() => CommentTable.id, {onDelete: "cascade"}).primaryKey(),
+  reason: varchar("reason", {length: 1000}),
+  reportAt: timestamp("reportAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+})
+
+export const ReportNftTable = pgTable("ReportNft", {
+  reporterProfileId: integer("reporterProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}).primaryKey(),
+  reportedNftId: integer("reportedNftId").notNull().references(() => NftTable.id, {onDelete: "cascade"}).primaryKey(),
+  reason: varchar("reason", {length: 1000}),
+  reportAt: timestamp("reportAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+})
+
+export const ReportProfileTable = pgTable("ReportProfile", {
+  reporterProfileId: integer("reporterProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}).primaryKey(),
+  reportedProfileId: integer("reportedProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}).primaryKey(),
+  reason: varchar("reason", {length: 1000}),
+  reportAt: timestamp("reportAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+})
+
+export const WhitelistTable = pgTable("Whitelist", {
+  id: serial("id").notNull().primaryKey(),
+  startAt: timestamp("startAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  endAt: timestamp("endAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  teaBagId: integer("teaBagId").notNull().references(() => TeaBagTable.id, {onDelete: "cascade"}),
+})
+
+export const ViewProfileTable = pgTable("ViewProfile", {
+  id: serial("id").notNull().primaryKey(),
+  viewerProfileId: integer("viewerProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  viewedProfileId: integer("viewedProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  viewAt: timestamp("viewAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+})
+
+export const ScheduleDeletionUserTable = pgTable("ScheduleDeletionUser", {
+  id: serial("id").notNull().primaryKey(),
+  userId: integer("userId").notNull().unique().references(() => UserTable.id, {onDelete: "cascade"}),
+  scheduleAt: timestamp("scheduleAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  byUserId: integer("byUserId").notNull().references(() => UserTable.id, {onDelete: "cascade"}),
+  reason: varchar("reason", {length: 1000})
+})
+
+export const DraftNftTable = pgTable("DraftNft", {
+  id: serial("id").notNull().primaryKey(),
+  description: text("description").notNull(),
+  ownerId: integer("ownerId").notNull().references(() => UserTable.id, {onDelete: "cascade"}),
+  hashtags: varchar("hashtags", {length: 255}).array(5).notNull(),
+  location: text("location").notNull(),
+})
+
+export const WhitelistUserTable = pgTable("WhitelistUser", {
+  whitelistId: integer("whitelistId").notNull().references(() => WhitelistTable.id, {onDelete: "cascade"}).primaryKey(),
+  whitelistedUserId: integer("whitelistedUserId").notNull().references(() => UserTable.id, {onDelete: "cascade"}).primaryKey(),
+})
+
+export const ViewNftTable = pgTable("ViewNft", {
+  id: serial("id").notNull().primaryKey(),
+  profileId: integer("profileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  nftId: integer("nftId").notNull().references(() => NftTable.id, {onDelete: "cascade"}),
+  viewAt: timestamp("viewAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+})
+
+export const UserTeaBagTable = pgTable("UserTeaBag", {
+  userId: integer("userId").notNull().references(() => UserTable.id, {onDelete: "cascade"}).primaryKey(),
+  teaBagId: integer("teaBagId").notNull().references(() => TeaBagTable.id, {onDelete: "cascade"}).primaryKey(),
+  role: UserTeaBagRoleEnum("role").notNull().default("user"),
+})
+
+export const PrivateMessageTable = pgTable("PrivateMessage", {
+  id: serial("id").notNull().primaryKey(),
+  fromProfileId: integer("fromProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  toProfileId: integer("toProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  message: varchar("message", {length: 1000}).notNull(),
+  sentAt: timestamp("sentAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  replyPrivateMessageId: integer("replyPrivateMessageId"),
+})
+
+export const FollowTable = pgTable("Follow", {
+  followerProfileId: integer("followerProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  followedProfileId: integer("followedProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}),
+  followAt: timestamp("followAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+}, (table) => {
+  return {
+    pk: primaryKey({name: "Follow_pkey", columns: [table.followerProfileId, table.followedProfileId]})
+  }
+})
+
+export const followRelations = relations(FollowTable, ({one}) => ({
+  follower: one(ProfileTable, {
+    fields: [FollowTable.followerProfileId],
+    references: [ProfileTable.id],
+  }),
+  followed: one(ProfileTable, {
+    fields: [FollowTable.followedProfileId],
+    references: [ProfileTable.id],
+  }),
+}))
+
+export const PasswordResetTable = pgTable("PasswordReset", {
+  id: serial("id").notNull().primaryKey(),
+  resetId: uuid("resetId").notNull().unique().defaultRandom(),
+  userId: integer("userId").notNull().references(() => UserTable.id, {onDelete: "cascade"}),
+  createdAt: timestamp("createdAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  expireAt: timestamp("expireAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  active: boolean("active").notNull(),
+})
+
+export const EmailVerificationTable = pgTable("EmailVerification", {
+  id: serial("id").notNull().primaryKey(),
+  verificationId: uuid("verificationId").notNull().unique().defaultRandom(),
+  email: varchar("email", {length: 255}).notNull(),
+  createdAt: timestamp("createdAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  expireAt: timestamp("expireAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  isVerified: boolean("isVerified").notNull()
+})
+
+export const RequestFollowTable = pgTable("RequestFollow", {
+  requesterProfileId: integer("requesterProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}).primaryKey(),
+  requestedProfileId: integer("requestedProfileId").notNull().references(() => ProfileTable.id, {onDelete: "cascade"}).primaryKey(),
+  requestAt: timestamp("requestAt", {withTimezone: false, mode: "string", precision: 3}).notNull(),
+  isIgnored: boolean("isIgnored").notNull().default(false),
+})
+
+export const requestFollowRelations = relations(RequestFollowTable, ({one}) => ({
+  requester: one(ProfileTable, {
+    fields: [RequestFollowTable.requesterProfileId],
+    references: [ProfileTable.id],
   }),
 }))
 

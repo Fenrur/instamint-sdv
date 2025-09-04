@@ -29,9 +29,16 @@ export const currencyTypeArray = [
 
 export type CurrencyType = typeof currencyTypeArray[number]
 
+export const userTeaBagRoleArray = [
+  "user",
+  "cooker"
+] as const
+
+export type UserTeaBagRole = typeof userTeaBagRoleArray[number]
+
 export const notificationTypeArray = [
   "comments_replies",
-  "comments_threads", 
+  "comments_threads",
   "mints",
   "follow_requests",
   "follow_requests_accepted"
